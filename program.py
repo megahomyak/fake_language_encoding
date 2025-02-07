@@ -22,6 +22,7 @@ def _simple_punctuation(chars, *, capitalization_required):
         ctx.capitalization_required = capitalization_required
         ctx.punctuation_allowed = False
         ctx.space_required = True
+        ctx.number_allowed = True
         ctx.result += chars
     return inner
 
@@ -29,6 +30,7 @@ def _simple_punctuation(chars, *, capitalization_required):
 
 def _number(ctx):
     _enter_nonpunct(ctx, str(_randint(0, 100)))
+    ctx.number_allowed = False
 
 def _word(ctx):
     len_ = _randint(1, 10)
@@ -37,6 +39,7 @@ def _word(ctx):
     if ctx.capitalization_required:
         word = word.capitalize()
     _enter_nonpunct(ctx, word)
+    ctx.number_allowed = True
 
 def _do_next(ctx):
     weights = []
@@ -45,12 +48,14 @@ def _do_next(ctx):
         weights.append(weight)
         handlers.append(handler)
     strat(70, _word)
-    strat(7, _number)
+    if ctx.number_allowed:
+        strat(7, _number)
     if ctx.paragraph_time == 0:
         ctx.paragraph_time = _get_new_paragraph_time()
         ctx.punctuation_allowed = False
         ctx.capitalization_required = True
         ctx.space_required = False
+        ctx.number_allowed = True
         ctx.result += "\n\n"
     if ctx.punctuation_allowed:
         strat(12, _simple_punctuation(",", capitalization_required=False))
@@ -75,12 +80,14 @@ def encode(octets: "iterable of ints"):
     while accumulator != 0:
         accumulator, rem = divmod(accumulator, len(_LETTERS))
         letters.append(_LETTERS[rem])
+    letters.reverse()
     ctx = _SN(
         letters=letters,
         result="",
         punctuation_allowed=False,
         capitalization_required=True,
         space_required=False,
+        number_allowed=True,
         paragraph_time=_get_new_paragraph_time(),
     )
     while True:
@@ -89,7 +96,6 @@ def encode(octets: "iterable of ints"):
             return ctx.result
 
 def decode(string):
-    string = string[::-1]
     octets = []
     accumulator = 0
     for c in string:
@@ -103,4 +109,20 @@ def decode(string):
     while accumulator != 0:
         accumulator, rem = divmod(accumulator, 257)
         octets.append(rem - 1)
-    return bytes(octets[::-1])
+    octets.reverse()
+    return bytes(octets)
+
+def main():
+    import sys
+    try: mode = sys.argv[1]
+    except KeyError: raise Exception("Mode not provided as first argument to script")
+    try: data = sys.argv[2]
+    except KeyError: raise Exception("Data not provided as second argument to script")
+    if mode == "enc":
+        print(encode(data.encode()))
+    elif mode == "dec":
+        print(decode(data).decode())
+    else:
+        raise Exception(f"Unknown mode: \"{mode}\"")
+
+main()
