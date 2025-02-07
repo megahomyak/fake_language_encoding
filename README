@@ -1,0 +1,6 @@
+USAGE:
+
+$ python3 program.py enc 'I love gibberish!'
+Gltidutu qynlg. Yp, ckqchytkk dskom
+$ python3 program.py dec 'Gltidutu qynlg. Yp, ckqchytkk dskom'
+I love gibberish!
