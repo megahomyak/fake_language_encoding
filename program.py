@@ -8,88 +8,99 @@ def _randstrat(*args):
     return _random.choices(strat_population, strat_weights)[0]
 
 def _enter_nonpunct(ctx, chars):
-    if ctx.result != "":
+    if ctx.space_required:
         ctx.result += " "
+    ctx.space_required = True
+    ctx.punctuation_allowed = True
+    ctx.capitalization_required = False
+    if ctx.paragraph_time != 0:
+        ctx.paragraph_time -= 1
     ctx.result += chars
 
-# , . ? ! <word> <number> <new paragraph> <parens>
-
-def _beginning(ctx):
-    _randstrat(
-        7, _word,
-        1, _number,
-    )(ctx)
-    return _paragraph
-
-def _afternum()
-
-def _paragraph(ctx):
-    _randstrat(
-        15, _word
-    )
-
-def _enter_nonpunct(data, after):
+def _simple_punctuation(chars, *, capitalization_required):
     def inner(ctx):
-        if ctx.result != "":
-            ctx.result += " "
-        _enter(data)(ctx)
-        return after
+        ctx.capitalization_required = capitalization_required
+        ctx.punctuation_allowed = False
+        ctx.space_required = True
+        ctx.result += chars
     return inner
 
-def _enter(data, after):
-    def inner(ctx):
-        ctx.result += data
-    return inner
-
-def _new_paragraph(ctx):
-    ctx.result += "\n\n"
-
-_period = _enter_nonpunct(".")
-_comma = _enter_nonpunct(",")
-_exclamation_mark = _enter_nonpunct("!")
-_question_mark = _enter_nonpunct("?")
-
-def _period():
-    return _enter_nonpunct(".")
-
-def _comma():
-    return _enter_nonpunct(",")
-
-def _exclamation_mark():
-    return _enter_nonpunct("!")
-
-def _word(ctx):
-    pass
-
-def _question_mark(ctx):
-    pass
+# , . ? ! <word> <number> <new paragraph> <parens - NOT IMPLEMENTED YET>
 
 def _number(ctx):
+    _enter_nonpunct(ctx, str(_randint(0, 100)))
 
+def _word(ctx):
+    len_ = _randint(1, 10)
+    word = "".join(ctx.letters[:len_])
+    ctx.letters = ctx.letters[len_:]
+    if ctx.capitalization_required:
+        word = word.capitalize()
+    _enter_nonpunct(ctx, word)
 
-def _parens(ctx):
-    _enter_nonpunct(ctx, "(")
-    for i in range(randint()):
-        _parens_randstrat(ctx)
-    ctx.result += ")"
-    ctx.space_needed = True
+def _do_next(ctx):
+    weights = []
+    handlers = []
+    def strat(weight, handler):
+        weights.append(weight)
+        handlers.append(handler)
+    strat(70, _word)
+    strat(7, _number)
+    if ctx.paragraph_time == 0:
+        ctx.paragraph_time = _get_new_paragraph_time()
+        ctx.punctuation_allowed = False
+        ctx.capitalization_required = True
+        ctx.space_required = False
+        ctx.result += "\n\n"
+    if ctx.punctuation_allowed:
+        strat(12, _simple_punctuation(",", capitalization_required=False))
+        strat(8, _simple_punctuation(".", capitalization_required=True))
+        strat(4, _simple_punctuation("!", capitalization_required=True))
+        strat(4, _simple_punctuation("?", capitalization_required=True))
+        strat(2, _simple_punctuation("...", capitalization_required=True))
+        strat(2, _simple_punctuation("...", capitalization_required=False))
+    _random.choices(handlers, weights)[0](ctx)
+
+def _get_new_paragraph_time():
+    return _randint(5, 30)
+
+_LETTERS = "abcdefghijklmnopqrstuvwxyz"
 
 def encode(octets: "iterable of ints"):
-    n = 0
+    accumulator = 0
     for octet in octets:
-        n *= 257
-        n += octet + 1
+        accumulator *= 257
+        accumulator += octet + 1
     letters = []
-    while n != 0:
-        quot, n = divmod(n, 26)
-        letters.append("abcdefghijklmnopqrstuvwxyz"[quot])
+    while accumulator != 0:
+        accumulator, rem = divmod(accumulator, len(_LETTERS))
+        letters.append(_LETTERS[rem])
     ctx = _SN(
         letters=letters,
         result="",
-        should_capitalize=False
+        punctuation_allowed=False,
+        capitalization_required=True,
+        space_required=False,
+        paragraph_time=_get_new_paragraph_time(),
     )
-    thunk = _beginning
     while True:
-        thunk = thunk(ctx)
-        if thunk is None:
+        _do_next(ctx)
+        if len(ctx.letters) == 0:
             return ctx.result
+
+def decode(string):
+    string = string[::-1]
+    octets = []
+    accumulator = 0
+    for c in string:
+        try:
+            index = _LETTERS.index(c.lower())
+        except ValueError:
+            pass
+        else:
+            accumulator *= len(_LETTERS)
+            accumulator += index
+    while accumulator != 0:
+        accumulator, rem = divmod(accumulator, 257)
+        octets.append(rem - 1)
+    return bytes(octets[::-1])
