@@ -7,6 +7,27 @@ def _randstrat(*args):
     strat_population = args[1::2]
     return _random.choices(strat_population, strat_weights)[0]
 
+def _enter_nonpunct(ctx, chars):
+    if ctx.result != "":
+        ctx.result += " "
+    ctx.result += chars
+
+# , . ? ! <word> <number> <new paragraph> <parens>
+
+def _beginning(ctx):
+    _randstrat(
+        7, _word,
+        1, _number,
+    )(ctx)
+    return _paragraph
+
+def _afternum()
+
+def _paragraph(ctx):
+    _randstrat(
+        15, _word
+    )
+
 def _enter_nonpunct(data, after):
     def inner(ctx):
         if ctx.result != "":
@@ -65,11 +86,10 @@ def encode(octets: "iterable of ints"):
     ctx = _SN(
         letters=letters,
         result="",
+        should_capitalize=False
     )
-    thunk = _beginning()
+    thunk = _beginning
     while True:
         thunk = thunk(ctx)
-
-    while thunk is not None:
-        thunk = thunk()(ctx)
-    return ctx.result
+        if thunk is None:
+            return ctx.result
